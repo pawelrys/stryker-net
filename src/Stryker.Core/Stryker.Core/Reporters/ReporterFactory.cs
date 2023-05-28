@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Stryker.Core.Baseline.Providers;
 using Stryker.Core.Options;
+using Stryker.Core.Reporters.Csv;
 using Stryker.Core.Reporters.Html;
 using Stryker.Core.Reporters.Json;
 using Stryker.Core.Reporters.Progress;
@@ -32,7 +33,8 @@ namespace Stryker.Core.Reporters
                 { Reporter.Html, new HtmlReporter(options) },
                 { Reporter.Dashboard, new DashboardReporter(options) },
                 { Reporter.Markdown, new MarkdownSummaryReporter(options) },
-                { Reporter.Baseline, new BaselineReporter(options) }
+                { Reporter.Baseline, new BaselineReporter(options) },
+                { Reporter.Csv, new CsvReporter(options) }
             };
         }
 

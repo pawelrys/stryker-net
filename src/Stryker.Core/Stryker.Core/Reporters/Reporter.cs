@@ -11,6 +11,7 @@ namespace Stryker.Core.Reporters
         Html,
         Dashboard,
         Markdown,
-        Baseline
+        Baseline,
+        Csv
     }
 }
