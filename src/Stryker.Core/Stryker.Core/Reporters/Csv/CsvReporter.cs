@@ -1,16 +1,12 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
+using System.IO;
+using System.IO.Abstractions;
 using System.Linq;
-using System.Threading;
-using Microsoft.CodeAnalysis.CSharp;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Spectre.Console;
 using Stryker.Core.Mutants;
 using Stryker.Core.Options;
 using Stryker.Core.ProjectComponents;
 using Stryker.Core.ProjectComponents.TestProjects;
-using Stryker.Core.Reporters.Json;
 
 namespace Stryker.Core.Reporters.Csv;
 
@@ -18,11 +14,13 @@ public class CsvReporter : IReporter
 {
     private readonly StrykerOptions _options;
     private readonly IAnsiConsole _console;
+    private readonly IFileSystem _fileSystem;
 
-    public CsvReporter(StrykerOptions strykerOptions, IAnsiConsole console = null)
+    public CsvReporter(StrykerOptions strykerOptions, IFileSystem fileSystem = null, IAnsiConsole console = null)
     {
         _options = strykerOptions;
         _console = console ?? AnsiConsole.Console;
+        _fileSystem = fileSystem ?? new FileSystem();
     }
 
     public void OnMutantsCreated(IReadOnlyProjectComponent reportComponent, TestProjectsInfo testProjectsInfo)
@@ -42,56 +40,50 @@ public class CsvReporter : IReporter
 
     public void OnAllMutantsTested(IReadOnlyProjectComponent reportComponent, TestProjectsInfo testProjectsInfo)
     {
+        const string DescriptionTemplate = "ID,Mutation_Class,Mutant_Status,Line_Number,Mutation_Type,Test_Name";
 
         var tests = testProjectsInfo.TestFiles.ToList();
-        var alltests = from testFile in tests select testFile.Tests.ToList();
-        var finalList = alltests.SelectMany(d => d).ToList();
+        var allTests = from testFile in tests select testFile.Tests.ToList();
+        var finalTestsList = allTests.SelectMany(d => d).ToList();
+        var filename = _options.ReportFileName + ".csv";
+        var reportPath = Path.Combine(_options.ReportPath, filename);
+        _fileSystem.Directory.CreateDirectory(Path.GetDirectoryName(reportPath)!);
+        var streamWriter = new StreamWriter(reportPath);
 
         _console.WriteLine();
-        _console.WriteLine();
-        _console.WriteLine("TEEEEEEEEEEEEST____________________");
-        _console.WriteLine();
+        streamWriter.WriteLine(DescriptionTemplate);
         foreach (var mutant in reportComponent.Mutants)
         {
-            if (mutant.AssessingTests.GetGuids().Count() == 0)
+            if (!mutant.AssessingTests.GetGuids().Any())
             {
                 _console.WriteLine("ID: " + mutant.DisplayName);
-                _console.WriteLine("Klasa Mutacyjna: " + mutant.Mutation.OriginalNode.GetLocation());
-                _console.WriteLine("Status Mutanta: " + mutant.ResultStatus);
-                _console.WriteLine("Nr_Lini: "+ mutant.Line);
-                _console.WriteLine("Opis_Uzycia_Operatora: " + mutant.Mutation.DisplayName);
-                _console.WriteLine("Operator mutacyjny: " + mutant.Mutation.Type);
+                _console.WriteLine("Mutation Class: " + mutant.Mutation.OriginalNode.GetLocation());
+                _console.WriteLine("Mutant Status: " + mutant.ResultStatus);
+                _console.WriteLine("Line Number: " + mutant.Line);
+                _console.WriteLine("Mutation Type: " + mutant.Mutation.DisplayName);
+                var line =
+                    $"{mutant.DisplayName},{mutant.Mutation.OriginalNode.GetLocation()},{mutant.ResultStatus},{mutant.Line},{mutant.Mutation.DisplayName}";
+                streamWriter.WriteLine(line);
+                _console.WriteLine();
             }
+
             foreach (var testId in mutant.AssessingTests.GetGuids())
             {
-                var test = finalList.Find(obj => obj.Id.Equals(testId));
+                var test = finalTestsList.Find(obj => obj.Id.Equals(testId));
                 _console.WriteLine("ID: " + mutant.DisplayName);
-                _console.WriteLine("Klasa Mutacyjna: " + mutant.Mutation.OriginalNode.GetLocation());
-                _console.WriteLine("Status Mutanta: " + mutant.ResultStatus);
-                _console.WriteLine("Nr_Lini: "+ mutant.Line);
-                _console.WriteLine("Opis_Uzycia_Operatora: " + mutant.Mutation.DisplayName);
-                _console.WriteLine("Operator mutacyjny: " + mutant.Mutation.Type);
-                _console.WriteLine("Nazwa Testu: "  + test.Name);
-
-                // if (mutant.Mutation.OriginalNode is BinaryExpressionSyntax)
-                // {
-                //     _console.WriteLine("TEST1: " + ((BinaryExpressionSyntax)mutant.Mutation.OriginalNode).GetText());
-                //     _console.WriteLine("TEST2: " + ((BinaryExpressionSyntax)mutant.Mutation.OriginalNode).OperatorToken);
-                //     _console.WriteLine("TEST2: " + ((BinaryExpressionSyntax)mutant.Mutation.ReplacementNode).OperatorToken);
-                //     break;
-                // }
+                _console.WriteLine("Mutation Class: " + mutant.Mutation.OriginalNode.GetLocation());
+                _console.WriteLine("Mutant Status: " + mutant.ResultStatus);
+                _console.WriteLine("Line Number: " + mutant.Line);
+                _console.WriteLine("Mutation Type: " + mutant.Mutation.DisplayName);
+                _console.WriteLine("Test Name: " + test.Name);
+                var line =
+                    $"{mutant.DisplayName},{mutant.Mutation.OriginalNode.GetLocation()},{mutant.ResultStatus},{mutant.Line},{mutant.Mutation.DisplayName},{test.Name}";
+                streamWriter.WriteLine(line);
+                _console.WriteLine();
             }
-
-            // if (mutant.Mutation.OriginalNode is BinaryExpressionSyntax)
-            // {
-            //     break;
-            // }
         }
 
-
-
-        // print empty line for readability
-        _console.WriteLine();
+        streamWriter.Flush();
         _console.WriteLine();
         _console.WriteLine("All mutants have been tested, and your mutation score has been calculated");
     }
